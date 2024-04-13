@@ -1,11 +1,17 @@
 package ds.tutorial.communication.server;
 
-import java.util.Random;
 
-import ds.tutorial.communication.grpc.generated.BalanceServiceGrpc;
+import ds.tutorial.communication.grpc.generated.CheckBalanceServiceGrpc;
 import ds.tutorial.communication.grpc.generated.CheckBalanceResponse;
 
-public class BalanceServiceImpl extends BalanceServiceGrpc.BalanceServiceImplBase {
+public class BalanceServiceImpl extends CheckBalanceServiceGrpc.CheckBalanceServiceImplBase {
+
+    private BankServer bankServer;
+
+    public BalanceServiceImpl(BankServer bankServer) {
+        this.bankServer = bankServer;
+    }
+
     @Override
     public void checkBalance(ds.tutorial.communication.grpc.generated.CheckBalanceRequest request,
                              io.grpc.stub.StreamObserver<ds.tutorial.communication.grpc.generated.CheckBalanceResponse> responseObserver) {
@@ -25,8 +31,8 @@ public class BalanceServiceImpl extends BalanceServiceGrpc.BalanceServiceImplBas
     }
 
     private double getAccountBalance(String accountId) {
-        System.out.println("Checking balance for Account " + accountId);
-        return new Random().nextDouble() * 10000;
+        return bankServer.getAccountBalance(accountId);
+
     }
 
 }
