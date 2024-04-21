@@ -10,6 +10,9 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import org.apache.zookeeper.KeeperException;
 
 import ds.tutorial.synchronization.client.DistributedLock;
+import ds.tutorial.synchronization.client.DistributedTx;
+import ds.tutorial.synchronization.client.DistributedTxCoordinator;
+import ds.tutorial.synchronization.client.DistributedTxParticipant;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
 
@@ -19,8 +22,12 @@ public class BankServer {
     private AtomicBoolean isLeader = new AtomicBoolean(false);
     private byte[] leaderData;
     private Map<String, Double> accounts = new HashMap();
+    DistributedTx transaction;
+   SetBalanceServiceImpl setBalanceService;
+   BalanceServiceImpl checkBalanceService;
     public static void main (String[] args) throws Exception{
         DistributedLock.setZooKeeperURL("localhost:2181");
+        DistributedTx.setZooKeeperURL("localhost:2181");
         int serverPort;
         if (args.length != 1) {
             System.out.println("Usage BankServer <port>");
@@ -34,13 +41,16 @@ public class BankServer {
     public BankServer(String host, int port) throws InterruptedException, IOException, KeeperException {
         this.serverPort = port;
         leaderLock = new DistributedLock("BankServerTestCluster", buildServerData(host, port));
+        setBalanceService = new SetBalanceServiceImpl(this);
+         checkBalanceService = new BalanceServiceImpl(this);
+         transaction = new DistributedTxParticipant(setBalanceService);
      }
      
      public void startServer() throws IOException, InterruptedException, KeeperException {
         Server server = ServerBuilder
                 .forPort(serverPort)
-                .addService(new BalanceServiceImpl(this))
-                .addService(new SetBalanceServiceImpl(this))
+                .addService(setBalanceService)
+                .addService(checkBalanceService)
                 .build();
         server.start();
         System.out.println("BankServer Started and ready to accept requests on port " + serverPort);
@@ -83,6 +93,10 @@ public class BankServer {
         return result;
      }
      
+     public DistributedTx getTransaction() {
+      return transaction;
+      }
+   
      
      private synchronized void setCurrentLeaderData(byte[] leaderData) {
         this.leaderData = leaderData;
@@ -112,13 +126,21 @@ public class BankServer {
                     Thread.sleep(10000);
                     leader = leaderLock.tryAcquireLock();
                 }
-                System.out.println("I got the leader lock. Now acting as primary");
-                isLeader.set(true);
+               //  System.out.println("I got the leader lock. Now acting as primary");
+               //  isLeader.set(true);
                 currentLeaderData = null;
+                beTheLeader();
             } catch (Exception e){
             }
         }
      }
+
+     private void beTheLeader() {
+      System.out.println("I got the leader lock. Now acting as primary");
+      isLeader.set(true);
+      transaction = new DistributedTxCoordinator(setBalanceService);
+   }
+   
      
      
      

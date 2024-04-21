@@ -48,9 +48,13 @@
     <dependency>
       <groupId>ds.tutorial.synchronization</groupId>
       <artifactId>client</artifactId>
-      <version>1.1</version>
+      <version>2.0.0</version>
     </dependency>
-
+    <dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-base</artifactId>
+    <version>17.0.11</version>
+</dependency>
   </dependencies>
 
   <build>

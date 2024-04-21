@@ -1,17 +1,26 @@
 package ds.tutorial.communication.server;
 
 import ds.tutorial.communication.grpc.generated.SetBalanceServiceGrpc;
+import ds.tutorial.synchronization.client.DistributedTxListener;
+import ds.tutorial.synchronization.client.DistributedTxCoordinator;
+import ds.tutorial.synchronization.client.DistributedTxParticipant;
 import ds.tutorial.communication.grpc.generated.SetBalanceRequest;
 import ds.tutorial.communication.grpc.generated.SetBalanceResponse;
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import org.apache.zookeeper.KeeperException;
-import java.util.List;
+import javafx.util.Pair;
 
-public class SetBalanceServiceImpl extends SetBalanceServiceGrpc.SetBalanceServiceImplBase {
+import java.io.IOException;
+import java.util.List;
+import java.util.UUID;
+
+public class SetBalanceServiceImpl extends SetBalanceServiceGrpc.SetBalanceServiceImplBase implements DistributedTxListener {
     private ManagedChannel channel = null;
    SetBalanceServiceGrpc.SetBalanceServiceBlockingStub clientStub = null;
    private BankServer server;
+   private Pair<String, Double> tempDataHolder;
+   private boolean transactionStatus = false;
 
    public SetBalanceServiceImpl(BankServer server){
        this.server = server;
@@ -19,18 +28,23 @@ public class SetBalanceServiceImpl extends SetBalanceServiceGrpc.SetBalanceServi
 
    @Override
    public void setBalance(ds.tutorial.communication.grpc.generated.SetBalanceRequest request,
-                          io.grpc.stub.StreamObserver<ds.tutorial.communication.grpc.generated.SetBalanceResponse> responseObserver) {
+           io.grpc.stub.StreamObserver<ds.tutorial.communication.grpc.generated.SetBalanceResponse> responseObserver) {
 
        String accountId = request.getAccountId();
        double value = request.getValue();
-       boolean status = false;
-       if (server.isLeader()){
+
+       if (server.isLeader()) {
            // Act as primary
            try {
                System.out.println("Updating account balance as Primary");
-               updateBalance(accountId, value);
+               startDistributedTx(accountId, value);
                updateSecondaryServers(accountId, value);
-               status = true;
+               System.out.println("going to perform");
+            //    if (value > 0) {
+                   ((DistributedTxCoordinator) server.getTransaction()).perform();
+            //    } else {
+                //    ((DistributedTxCoordinator) server.getTransaction()).sendGlobalAbort();
+            //    }
            } catch (Exception e) {
                System.out.println("Error while updating the account balance" + e.getMessage());
                e.printStackTrace();
@@ -39,23 +53,39 @@ public class SetBalanceServiceImpl extends SetBalanceServiceGrpc.SetBalanceServi
            // Act As Secondary
            if (request.getIsSentByPrimary()) {
                System.out.println("Updating account balance on secondary, on Primary's command");
-               updateBalance(accountId, value);
+               startDistributedTx(accountId, value);
+               if (value != 0.0d) {
+                   ((DistributedTxParticipant) server.getTransaction()).voteCommit();
+               } else {
+                   ((DistributedTxParticipant) server.getTransaction()).voteAbort();
+               }
            } else {
                SetBalanceResponse response = callPrimary(accountId, value);
                if (response.getStatus()) {
-                   status = true;
+                   transactionStatus = true;
                }
            }
        }
 
        SetBalanceResponse response = SetBalanceResponse
                .newBuilder()
-               .setStatus(status)
+               .setStatus(transactionStatus)
                .build();
 
        responseObserver.onNext(response);
        responseObserver.onCompleted();
    }
+
+   private void updateBalance() {
+    if (tempDataHolder != null) {
+        String accountId = tempDataHolder.getKey();
+        double value = tempDataHolder.getValue();
+        server.setAccountBalance(accountId, value);
+        System.out.println("Account " + accountId + " updated to value " + value + " committed");
+        tempDataHolder = null;
+    }
+ }
+ 
 
    private void updateBalance(String accountId, double value) {
        server.setAccountBalance(accountId, value);
@@ -96,5 +126,25 @@ public class SetBalanceServiceImpl extends SetBalanceServiceGrpc.SetBalanceServi
            callServer(accountId, value, true, IPAddress, port);
        }
    }
+   private void startDistributedTx(String accountId, double value) {
+    try {
+        server.getTransaction().start(accountId, String.valueOf(UUID.randomUUID()));
+        tempDataHolder = new Pair<>(accountId, value);
+    } catch (IOException e) {
+        e.printStackTrace();
+    }
+ }
+ 
+
+@Override
+public void onGlobalAbort() {
+    tempDataHolder = null;
+   System.out.println("Transaction Aborted by the Coordinator");
+}
+
+@Override
+public void onGlobalCommit() {
+    updateBalance();
+}
 
 }
