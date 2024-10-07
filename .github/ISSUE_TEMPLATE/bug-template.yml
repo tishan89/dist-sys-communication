@@ -1,0 +1,49 @@
+name: "🐞 Report a Bug"
+description: Create an issue if something does not work as expected.
+labels: ["Type/Bug"]
+body:  
+  - type: dropdown
+    id: area
+    attributes:
+      label: Please select the area issue is related to
+      options:
+        - Cloud Native Development
+        - API Management
+        - Observability
+        - Organization Management
+        - Other
+      default: 4
+    validations:
+      required: true
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the issue
+      description: Description of what you tried to do and what actually happened
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: List the steps you followed when you encountered the issue. Provide sample source code to reproduce the issue where applicable.
+    validations:
+      required: true
+  - type: textarea
+    id: exepcted
+    attributes:
+      label: Expected Behaviour
+      description: Description of what you expected to happen.
+    validations:
+      required: true
+  - type: checkboxes
+    id: environment
+    attributes:
+      label: Environment Details
+      description: Mark the environments this issue occured
+      options:
+        - label: development
+        - label: stage
+        - label: production
+    validations:
+      required: true
