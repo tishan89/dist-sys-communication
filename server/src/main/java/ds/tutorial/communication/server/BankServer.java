@@ -9,7 +9,7 @@ public class BankServer {
 
         Server server = ServerBuilder
                 .forPort(serverPort)
-                .addService(new BalanceServiceImpl())
+                .addService(new CheckBalanceServiceImpl())
                 .build();
 
         server.start();

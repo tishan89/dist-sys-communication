@@ -2,10 +2,10 @@ package ds.tutorial.communication.server;
 
 import java.util.Random;
 
-import ds.tutorial.communication.grpc.generated.BalanceServiceGrpc;
+import ds.tutorial.communication.grpc.generated.CheckBalanceServiceGrpc;
 import ds.tutorial.communication.grpc.generated.CheckBalanceResponse;
 
-public class BalanceServiceImpl extends BalanceServiceGrpc.BalanceServiceImplBase {
+public class CheckBalanceServiceImpl extends CheckBalanceServiceGrpc.CheckBalanceServiceImplBase {
     @Override
     public void checkBalance(ds.tutorial.communication.grpc.generated.CheckBalanceRequest request,
                              io.grpc.stub.StreamObserver<ds.tutorial.communication.grpc.generated.CheckBalanceResponse> responseObserver) {
